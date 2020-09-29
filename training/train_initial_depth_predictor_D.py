@@ -10,7 +10,7 @@ from torch.autograd import Variable
 import torchvision
 from torchvision import datasets, models, transforms
 from torchvision.utils import make_grid
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 from models.depth_generator_networks import _UNetGenerator, init_weights
 

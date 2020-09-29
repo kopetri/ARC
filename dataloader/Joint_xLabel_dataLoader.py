@@ -20,6 +20,9 @@ from torch.autograd import Variable
 import torchvision
 from torchvision import datasets, models, transforms
 
+from pathlib import Path
+import h5py
+
 IMG_EXTENSIONS = [
     '.jpg', '.JPG', '.jpeg', '.JPEG',
     '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP', '.bin'
@@ -46,19 +49,13 @@ class Joint_xLabel_train_dataLoader(Dataset):
 
         self.set_name = 'train' # Joint_xLabel_train_dataLoader is only used in training phase
         
-        real_curfilenamelist = os.listdir(os.path.join(self.real_root_dir, self.set_name, 'rgb'))
-        for fname in sorted(real_curfilenamelist):
-            if is_image_file(fname):
-                path = os.path.join(self.real_root_dir, self.set_name, 'rgb', fname)
-                self.real_path2files.append(path)
+        
+        # get rgb image paths from nyu
+        self.real_path2files = [path.as_posix() for path in Path(self.real_root_dir, self.set_name).glob("**/*") if path.name.endswith('.h5')]
 
         self.real_set_len = len(self.real_path2files)
 
-        syn_curfilenamelist = os.listdir(os.path.join(self.syn_root_dir, self.set_name, 'rgb'))
-        for fname in sorted(syn_curfilenamelist):
-            if is_image_file(fname):
-                path = os.path.join(self.syn_root_dir, self.set_name, 'rgb', fname)
-                self.syn_path2files.append(path)
+        self.syn_path2files = [path.as_posix() for path in Path(self.syn_root_dir).glob("**/*") if "rgb_rawlight" in path.name and "perspective" in path.as_posix()]
 
         self.syn_set_len = len(self.syn_path2files)
 
@@ -89,8 +86,8 @@ class Joint_xLabel_train_dataLoader(Dataset):
         else:
             self.augment = False
 
-        real_img, real_depth = self.fetch_img_depth(real_filename)
-        syn_img, syn_depth = self.fetch_img_depth(syn_filename)
+        real_img, real_depth = self.fetch_img_depth(real_filename, 'real')
+        syn_img, syn_depth = self.fetch_img_depth(syn_filename, 'syn')
         return_dict = {'real': [real_img, real_depth], 'syn': [syn_img, syn_depth]}
 
         if self.x_labels:
@@ -99,18 +96,22 @@ class Joint_xLabel_train_dataLoader(Dataset):
             return_dict = {'real': [real_img, real_depth], 'syn': [syn_img, syn_depth], 'syn_extra_labels': extra_label_list}
         return return_dict
 
-    def fetch_img_depth(self, filename):
-        image = PIL.Image.open(filename)
-        image = np.array(image, dtype=np.float32) / 255.
-        
-        if self.set_name == 'train':
-            depthname = filename.replace('rgb','depth_inpainted').replace('png','bin')
-        else:
-            # use real depth for validation and testing
-            depthname = filename.replace('rgb','depth').replace('png','bin')
+    def fetch_img_depth(self, filename, type='real'):
+        if type == 'real':
+            h5f = h5py.File(filename, "r")
+            rgb = np.array(h5f['rgb'])
+            rgb = np.transpose(rgb, (1, 2, 0))
+            depth = np.array(h5f['depth'])
+            image = rgb / 255
+        elif type == 'syn':
+            image = PIL.Image.open(filename)
+            image = np.array(image, dtype=np.float32) / 255.
+            depth_path = filename.replace("rgb_rawlight", "depth")
+            # loads depth map D from png file
+            assert Path(depth_path).exists(), "file not found: {}".format(file)
+            depth_png = np.array(Image.open(depth_path), dtype=np.float32) # uint16 --> [0,65535] in millimeters
+            depth = depth_png/1000 #conversion to meters [0, 65.535]
 
-        depth = read_array_compressed(depthname)
-        
         if self.set_name=='train' and self.augment:
             image = np.fliplr(image).copy()
             depth = np.fliplr(depth).copy()

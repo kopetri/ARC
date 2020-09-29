@@ -21,6 +21,15 @@ from torch.autograd import Variable
 import torchvision
 from torchvision import datasets, models, transforms
 
+from pathlib import Path
+
+def h5_loader(path):
+    h5f = h5py.File(path, "r")
+    rgb = np.array(h5f['rgb'])
+    rgb = np.transpose(rgb, (1, 2, 0))
+    depth = np.array(h5f['depth'])
+    return rgb, depth
+
 class NYUv2_dataLoader(Dataset):
     def __init__(self, root_dir, set_name='train', size=[240, 320], rgb=True, downsampleDepthFactor=1, training_depth='inpaint'):
         # training depth option: inpaint | original
@@ -35,8 +44,7 @@ class NYUv2_dataLoader(Dataset):
         self.NYU_MIN_DEPTH_CLIP = 0.0
         self.NYU_MAX_DEPTH_CLIP = 10.0
         
-        curfilenamelist = os.listdir(path.join(self.root_dir, self.set_name, 'rgb'))
-        self.path2files += [path.join(self.root_dir, self.set_name, 'rgb')+'/'+ curfilename for curfilename in curfilenamelist]
+        self.path2files = [path.as_posix() for path in Path(self.root_dir, self.set_name).glob("**/*") if path.name.endswith('.h5')]
         self.current_set_len = len(self.path2files)   
         
         self.TF2tensor = transforms.ToTensor()
@@ -52,19 +60,9 @@ class NYUv2_dataLoader(Dataset):
     
     def __getitem__(self, idx):
         filename = self.path2files[idx]
-        image = PIL.Image.open(filename)
-        image = np.array(image).astype(np.float32) / 255.
         
-        if self.set_name == 'train':
-            if self.training_depth == 'original':
-                depthname = filename.replace('rgb','depth').replace('png','bin')
-            else:
-                depthname = filename.replace('rgb','depth_inpainted').replace('png','bin')
-        else:
-            # use real depth for validation and testing
-            depthname = filename.replace('rgb','depth').replace('png','bin')
-
-        depth = read_array_compressed(depthname)
+        image, depth = h5_loader(filename)
+        image /= 255.
         
         if self.set_name =='train' and np.random.random(1)>0.5:
             image = np.fliplr(image).copy()

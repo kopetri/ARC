@@ -8,7 +8,7 @@ from dataloader.NYUv2_dataLoader import NYUv2_dataLoader
 from dataloader.Joint_xLabel_dataLoader import Joint_xLabel_train_dataLoader
 
 # step 1: Train Initial Depth Predictor D
-# from training.train_initial_depth_predictor_D import train_initial_depth_predictor_D as train_model
+from training.train_initial_depth_predictor_D import train_initial_depth_predictor_D as train_model
 
 # step 2: Train Style Translator T (pre-train T)
 # from training.train_style_translator_T import train_style_translator_T as train_model
@@ -23,7 +23,7 @@ from dataloader.Joint_xLabel_dataLoader import Joint_xLabel_train_dataLoader
 # from training.jointly_train_depth_predictor_D_and_attention_module_A import jointly_train_depth_predictor_D_and_attention_module_A as train_model
 
 # step 6: Finetune the Whole System with Depth Loss (Modular Coordinate Descent)
-from training.finetune_the_whole_system_with_depth_loss import finetune_the_whole_system_with_depth_loss as train_model
+# from training.finetune_the_whole_system_with_depth_loss import finetune_the_whole_system_with_depth_loss as train_model
 
 import warnings # ignore warnings
 warnings.filterwarnings("ignore")
